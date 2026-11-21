@@ -225,6 +225,22 @@ await loop.goto('https://www.reddit.com/r/loop', { waitUntil: 'commit' });
 await loop.waitForSelector('.post', { timeout: 10000 });
 check(loop.url() === 'https://www.reddit.com/r/loop', 'redirect loop is avoided (app runs on www)');
 
+// Reddit refuses the listing JSON in its usual form: the app should fall back to another form
+const blocked = await newPage('light');
+await blocked.route(/old\.reddit\.com\/r\/blocked\/hot\.json/, (r) => r.fulfill({ status: 403, contentType: 'text/html', body: '<h1>blocked</h1>' }));
+await blocked.goto('https://old.reddit.com/r/blocked', { waitUntil: 'commit' });
+await blocked.waitForSelector('.post', { timeout: 10000 });
+check(true, 'listing loads via fallback when Reddit refuses the first request (403)');
+
+// everything refused: show the error with details
+const dead = await newPage('light');
+await dead.route(/\/r\/dead.*\.json/, (r) => r.fulfill({ status: 403, contentType: 'text/html', body: "<p>You've been blocked by network security.</p>" }));
+await dead.goto('https://old.reddit.com/r/dead', { waitUntil: 'commit' });
+await dead.waitForSelector('.errdetails', { timeout: 10000 });
+await dead.locator('.errdetails summary').click();
+check((await dead.locator('.errdetails pre').textContent()).includes('blocked by network security'), 'error shows response details when all fallbacks fail');
+await dead.screenshot({ path: SHOTS + '/11-error.png' });
+
 await browser.close();
 console.log(failures ? `\n${failures} failure(s)` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);

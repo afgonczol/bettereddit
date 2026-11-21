@@ -122,6 +122,10 @@ html.br-locked, html.br-locked body { overflow: hidden; }
 .endmsg { color: var(--muted); font-size: .85rem; padding: 26px; text-align: center; }
 .errbox { padding: 30px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .errmsg { color: var(--muted); }
+.errbtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.errdetails { width: 100%; text-align: left; font-size: .75rem; color: var(--muted); }
+.errdetails summary { text-align: center; cursor: pointer; padding: 4px; }
+.errdetails pre { white-space: pre-wrap; word-break: break-all; background: var(--chip); padding: 8px; border-radius: 6px; }
 
 /* subreddit / user header */
 .subhead { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--card); border-bottom: 1px solid var(--border); }

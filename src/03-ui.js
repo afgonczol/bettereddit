@@ -155,7 +155,17 @@ function errorBox(err, retry) {
       },
     }, "I'm over 18, continue"));
   } else if (retry) {
-    box.appendChild(h('button', { class: 'btn primary', onclick: retry }, 'Retry'));
+    box.appendChild(h('div', { class: 'errbtns' },
+      h('button', { class: 'btn primary', onclick: retry }, 'Retry'),
+      h('button', {
+        class: 'btn',
+        onclick: () => { location.href = 'https://www.reddit.com' + location.pathname + location.search + (location.search ? '&' : '?') + 'br_off=1'; },
+      }, 'Open on reddit.com')));
+  }
+  if (err && err.details) {
+    box.appendChild(h('details', { class: 'errdetails' }, h('summary', null, 'Details'),
+      h('pre', null, err.details),
+      h('button', { class: 'btn small', onclick: () => copyText(err.details) }, 'Copy details')));
   }
   return box;
 }

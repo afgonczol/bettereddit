@@ -13,37 +13,81 @@ function jsonPath(path) {
   return p ? p + '.json' : '/.json';
 }
 
-async function apiGet(path, params) {
-  const url = new URL(jsonPath(path), location.origin);
+// Ways to make a GET request. Reddit sometimes refuses one form (e.g. blocks a listing's
+// JSON on old.reddit.com) while accepting another, so on a refusal we try the next one
+// and remember whichever worked.
+const GET_VARIANTS = [
+  { name: 'default' },
+  { name: 'simple', simple: true },
+  { name: 'alt-host', alt: true },
+  { name: 'alt-host-anon', alt: true, anon: true },
+];
+let getVariant = 0;
+try { getVariant = Number(sessionStorage.getItem('br:getv')) || 0; } catch (e) { /* ignore */ }
+
+function buildGetUrl(path, params, v) {
+  let p = path;
+  if (v.simple) p = p.replace(/\/hot\/?$/, '') || '/';
+  let origin = location.origin;
+  if (v.alt) origin = /^old\./.test(location.hostname) ? 'https://www.reddit.com' : 'https://old.reddit.com';
+  const url = new URL(jsonPath(p), origin);
   if (params) {
     for (const k in params) {
-      const v = params[k];
-      if (v != null && v !== '') url.searchParams.set(k, v);
+      let val = params[k];
+      if (val == null || val === '') continue;
+      if (v.simple && k === 'limit' && Number(val) > 25) val = 25;
+      url.searchParams.set(k, val);
     }
   }
   url.searchParams.set('raw_json', '1');
-  let res;
-  try {
-    res = await fetch(url.href, { credentials: 'include', headers: { Accept: 'application/json' } });
-  } catch (e) {
-    throw new ApiError('Network error. Check your connection and try again.', 'network');
-  }
-  if (/\/over18/.test(res.url)) throw new ApiError('This community is marked as 18+.', 'over18');
-  const text = await res.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch (e) { /* not json */ }
-  if (!res.ok || !json) {
+  return url.href;
+}
+
+async function apiGet(path, params) {
+  const order = [getVariant].concat(GET_VARIANTS.map((_, i) => i).filter((i) => i !== getVariant));
+  const tried = [];
+  let lastErr = null;
+  for (const idx of order) {
+    const v = GET_VARIANTS[idx];
+    const url = buildGetUrl(path, params, v);
+    let res;
+    try {
+      const opts = { credentials: v.anon ? 'omit' : 'include' };
+      if (!v.simple) opts.headers = { Accept: 'application/json' };
+      res = await fetch(url, opts);
+    } catch (e) {
+      tried.push(v.name + ': ' + url + ' → network/CORS error');
+      if (!lastErr) lastErr = new ApiError('Network error. Check your connection and try again.', 'network');
+      continue;
+    }
+    if (/\/over18/.test(res.url)) throw new ApiError('This community is marked as 18+.', 'over18');
+    const text = await res.text();
+    let json = null;
+    try { json = JSON.parse(text); } catch (e) { /* not json */ }
+    if (res.ok && json) {
+      if (idx !== getVariant) {
+        getVariant = idx;
+        try { sessionStorage.setItem('br:getv', String(idx)); } catch (e) { /* ignore */ }
+      }
+      return json;
+    }
     const reason = json && json.reason;
     if (reason === 'private') throw new ApiError('This community is private.', 'private');
     if (reason === 'quarantined') throw new ApiError('This community is quarantined. Open it on reddit.com to opt in.', 'quarantined');
     if (reason === 'banned') throw new ApiError('This community has been banned.', 'banned');
     if (reason === 'gated') throw new ApiError('This community requires opting in on reddit.com.', 'gated');
     if (res.status === 404) throw new ApiError('Not found.', 404);
-    if (res.status === 403) throw new ApiError('Reddit refused the request (403).', 403);
-    if (res.status === 429) throw new ApiError('Reddit is rate-limiting requests. Wait a moment and retry.', 429);
-    throw new ApiError(res.ok ? 'Unexpected response from Reddit.' : 'Reddit returned an error (' + res.status + ').', res.status);
+    const snippet = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+    tried.push(v.name + ': ' + url + ' → ' + res.status + (snippet ? ' "' + snippet + '"' : ''));
+    if (res.status === 429) lastErr = new ApiError('Reddit is rate-limiting requests. Wait a moment and retry.', 429);
+    else if (res.status === 403) lastErr = new ApiError('Reddit refused the request (403).', 403);
+    else lastErr = new ApiError(res.ok ? 'Unexpected response from Reddit.' : 'Reddit returned an error (' + res.status + ').', res.status);
+    // only refusals/odd responses are worth retrying another way
+    if (res.status !== 403 && res.status !== 401 && res.ok === false && res.status !== 429) break;
   }
-  return json;
+  lastErr = lastErr || new ApiError('Request failed.', 'unknown');
+  lastErr.details = tried.join('\n');
+  throw lastErr;
 }
 
 let mePromise = null;

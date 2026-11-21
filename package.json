@@ -1,6 +1,6 @@
 {
   "name": "bettereddit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A fast, RedReader-style Reddit interface for Firefox on Android (userscript + extension).",
   "private": true,
   "scripts": {
