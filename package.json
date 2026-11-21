@@ -1,0 +1,11 @@
+{
+  "name": "bettereddit",
+  "version": "0.1.0",
+  "description": "A fast, RedReader-style Reddit interface for Firefox on Android (userscript + extension).",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node test/smoke.mjs"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,42 @@
+{
+  "manifest_version": 2,
+  "name": "Bettereddit",
+  "version": "0.1.0",
+  "description": "A fast, RedReader-style Reddit interface for Firefox on Android (userscript + extension).",
+  "icons": {
+    "48": "icon.svg",
+    "96": "icon.svg",
+    "128": "icon.svg"
+  },
+  "permissions": [
+    "*://*.reddit.com/*",
+    "*://reddit.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.reddit.com/*",
+        "*://reddit.com/*"
+      ],
+      "js": [
+        "bettereddit.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "bettereddit@bettereddit.github.io",
+      "strict_min_version": "115.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "120.0"
+    }
+  }
+}
